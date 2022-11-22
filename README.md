@@ -41,6 +41,7 @@ the following).
 ## Step 1: Automatically send staking rewards
 In this step, we will set up the script that automatically sends your staking rewards to two different addresses (`primaryDestinationAddress` and 
 `secondaryDestinationAddress`).
+
 2) Export the account created before as .json
 3) Rename it to key.json and move it to rewards-sender/config
 4) Rename `sample.config.yaml` to `config.yaml`
