@@ -115,8 +115,8 @@ const start = async (args: { config: string }): Promise<void> => {
   log.debug(`Will send ${secondaryTransfer} ${api.registry.chainTokens} to ${config.rewardsDestination.secondaryDestinationAddress}`)
   
   const transfers = [
-    api.tx.balances.transfer(config.rewardsDestination.primaryDestinationAddress, Math.round(primaryTransfer * base)),
-    api.tx.balances.transfer(config.rewardsDestination.secondaryDestinationAddress, Math.round(secondaryTransfer * base))
+    api.tx.balances.transferAllowDeath(config.rewardsDestination.primaryDestinationAddress, Math.round(primaryTransfer * base)),
+    api.tx.balances.transferAllowDeath(config.rewardsDestination.secondaryDestinationAddress, Math.round(secondaryTransfer * base))
   ];
   await api.tx.utility
   .batch(transfers)
