@@ -1,8 +1,7 @@
 #!/bin/bash
-echo "scheduler triggered" >> /home/usr/scheduler.log
+echo "scheduler triggered" >> /home/user/scheduler.log
 cd ~/rewards-sender
-usr/bin/yarn start
-sleep 300
+/usr/bin/yarn start
+sleep 10m
 cd ~/
-usr/bin/python3 kraken_sell.py
-
+/usr/bin/python3 auto_sell.py

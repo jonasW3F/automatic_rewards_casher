@@ -1,6 +1,6 @@
 # rewards-sender
 
-This tool sends funds from a given Polkadot/Kusama account to two rewards destinations defined by the split in the config.
+This tool sends funds from a given Polkadot account to two other accounts. The ratio of how the funds are split are defined by the split in the config file.
 
 ## Usage
 
@@ -11,4 +11,4 @@ This tool sends funds from a given Polkadot/Kusama account to two rewards destin
 
 ## Tips & Tricks
 
-- To send funds on Kusama, just change the `end_point` entry to `wss://kusama-rpc.polkadot.io`
+- To send funds on Kusama, just change the `end_point` entry to `wss://kusama-rpc.polkadot.io` and change everything accordingly.

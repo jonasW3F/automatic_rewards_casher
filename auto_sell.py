@@ -1,4 +1,4 @@
-#!/opt/homebrew/bin/python3
+#!/usr/bin/python3
 
 import time
 from time import sleep
@@ -13,13 +13,19 @@ import subprocess
 # Read Kraken API key and secret stored in environment variables
 api_url = "https://api.kraken.com"
 
-api_key = os.environ['API_KEY_KRAKEN']
-api_sec = os.environ['API_SEC_KRAKEN']
+# Define the path to the API keys directory
+keys_dir = os.path.join(os.path.dirname(__file__), 'api_keys')
 
-asset = 'KSM'
-fiat = 'EUR'
-pair = asset + fiat
+# Function to read a key from a file
+def read_key(file_name):
+    try:
+        with open(os.path.join(keys_dir, file_name), 'r') as file:
+            return file.read().strip()
+    except FileNotFoundError:
+        raise Exception(f"File {file_name} not found in {keys_dir}")
 
+api_key = read_key('api_key')
+api_sec = read_key('api_sec')
 
 def get_kraken_signature(urlpath, data, secret):
 
@@ -39,26 +45,15 @@ def makeRequest(uri_path, data, api_key, api_sec):
     req = requests.post((api_url + uri_path), headers=headers, data=data)
     return req
 
-balances = makeRequest('/0/private/Balance', {
-    "nonce": str(int(1000*time.time()))
-}, api_key, api_sec)
+## Here you can specify your process. In this example, we sell all DOT for EUR, all EUR for CHF and then withdraw all CHF.
+## If you withdraw fiat, make sure to replace "YOURKEY" (usually the name you gave the withdrawal method).
 
+# Step 1: Sell all DOT for EUR
+balances = makeRequest('/0/private/Balance', {"nonce": str(int(1000*time.time()))}, api_key, api_sec)
 dot_balance = float(balances.json()['result']['DOT'])
-ksm_balance = float(balances.json()['result']['KSM'])
 
-traded_dot = False
-traded_ksm = False
-traded_fiat = False
-profit_dot = 0
-profit_ksm = 0
-
-if(dot_balance < 0.2 and ksm_balance < 0.1):
-    exit()
-
-
-
-if(dot_balance >= 0.2):
-    sell = makeRequest('/0/private/AddOrder', {
+if dot_balance >= 0.6:  # 0.6 DOT is the minimum volume
+    sell_dot_for_eur = makeRequest('/0/private/AddOrder', {
         "nonce": str(int(1000*time.time())),
         "ordertype": "market",
         "type": "sell",
@@ -66,92 +61,43 @@ if(dot_balance >= 0.2):
         "pair": 'DOTEUR',
     }, api_key, api_sec)
     sleep(10)
-    tx_id_dot = sell.json()['result']['txid'][0]
-    traded_dot = True
 
+    # Step 2: Sell all EUR for CHF
+    balances = makeRequest('/0/private/Balance', {"nonce": str(int(1000*time.time()))}, api_key, api_sec)
+    eur_balance = float(balances.json()['result']['ZEUR'])
+    
+    if eur_balance >= 0.5:  # 0.5 EUR is the minimum volume
+        sell_eur_for_chf = makeRequest('/0/private/AddOrder', {
+            "nonce": str(int(1000*time.time())),
+            "ordertype": "market",
+            "type": "sell",
+            "volume": str(eur_balance),
+            "pair": 'EURCHF',
+        }, api_key, api_sec)
+        sleep(10)
 
-if(ksm_balance >= 0.1):
-    sell = makeRequest('/0/private/AddOrder', {
-        "nonce": str(int(1000*time.time())),
-        "ordertype": "market",
-        "type": "sell",
-        "volume": str(ksm_balance),
-        "pair": 'KSMEUR',
-    }, api_key, api_sec)
-    sleep(10)
-    tx_id_ksm = sell.json()['result']['txid'][0]
-    traded_ksm = True
+        # Step 3: Withdraw CHF
+        balances = makeRequest('/0/private/Balance', {"nonce": str(int(1000*time.time()))}, api_key, api_sec)
+        chf_balance = float(balances.json()['result']['CHF'])
+        
+        if chf_balance > 2: # 2 CHF is the minimum withdrawal
+            withdraw_chf = makeRequest('/0/private/Withdraw', {
+                "nonce": str(int(1000*time.time())),
+                "asset": 'CHF',
+                "key": 'YOURKEY',
+                "amount": str(chf_balance)
+            }, api_key, api_sec)
+            sleep(10)
+            print("Withdrawal of CHF to account 'YUH' initiated.")
+        else:
+            print("Not enough CHF to initiate withdrawal.")
+    else:
+        print("Not enough EUR to trade for CHF.")
+else:
+    print("Not enough DOT to trade for EUR.")
 
-if(traded_dot == True):
-    trade_dot = makeRequest('/0/private/QueryOrders', {
-        "nonce": str(int(1000*time.time())),
-        "txid": tx_id_dot,
-        "trades": False
-    }, api_key, api_sec)
-    sleep(10)
-    profit_dot = trade_dot.json()['result'][tx_id_dot]['cost']
+message = 'LIFE: Hey Boss, I just cashed your rewards on Kraken. I sold ' + str(dot_balance) + ' DOT for ' + str(chf_balance) + ' CHF.'
+message += " Then, I withdrew " + str(chf_balance) + " CHF."
 
-if(traded_ksm == True):
-    trade_ksm = makeRequest('/0/private/QueryOrders', {
-        "nonce": str(int(1000*time.time())),
-    	"txid": tx_id_ksm,
-    	"trades": False
-	}, api_key, api_sec)
-    sleep(10)
-    profit_ksm = trade_ksm.json()['result'][tx_id_ksm]['cost']
-
-total_profit_eur = float(profit_dot) + float(profit_ksm)
-
-sleep(10)
-
-balances = makeRequest('/0/private/Balance', {
-    "nonce": str(int(1000*time.time()))
-}, api_key, api_sec)
-sleep(10)
-eur_balance = float(balances.json()['result']['ZEUR'])
-
-if(eur_balance >= 5):
-    traded_fiat = True
-    sell = makeRequest('/0/private/AddOrder', {
-        "nonce": str(int(1000*time.time())),
-        "ordertype": "market",
-        "type": "sell",
-        "volume": str(eur_balance),
-        "pair": 'EURCHF',
-    }, api_key, api_sec)
-    sleep(10)
-    tx_id_eur = sell.json()['result']['txid'][0]
-
-# To give Kraken backend time
-if(traded_fiat == True):
-    trade_eur = makeRequest('/0/private/QueryOrders', {
-    	"nonce": str(int(1000*time.time())),
-    	"txid": tx_id_eur,
-    	"trades": False
-	}, api_key, api_sec)
-    sleep(10)
-    profit_eur = trade_eur.json()['result'][tx_id_eur]['cost']
-    profit_eur = float(profit_eur)
-    profit_eur = round(profit_eur, 2)
-
-dot_balance = round(dot_balance, 2)
-ksm_balance = round(ksm_balance, 2)
-total_profit_eur = round(total_profit_eur, 2)
-
-
-message = 'Hey Boss, I just cashed your rewards on Kraken. I sold ' + str(dot_balance) + ' DOT and ' + str(ksm_balance) + ' KSM for a total of ' + str(total_profit_eur) + ' EUR.'
-
-if(traded_fiat == True):
-    message =  message + " I also converted EUR to CHF, which yielded " + str(profit_eur) + " CHF." 
-
-balances = makeRequest('/0/private/Balance', {
-    "nonce": str(int(1000*time.time()))
-}, api_key, api_sec)
-sleep(10)
-
-final_chf_balance = float(balances.json()['result']['CHF'])
-final_eur_balance = float(balances.json()['result']['ZEUR'])
-
-message = message + " Your current EUR balance is " + str(final_eur_balance) + " EUR" + " and your current CHF balance is " + str(final_chf_balance) + " CHF." 
 subprocess.run(["telegram-send",
                 message])
